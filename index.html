@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0d0f14">
+<meta name="description" content="Радар Мосбиржи — анализ акций российского рынка: живые котировки, RSI, дивиденды">
+<title>Радар Мосбиржи · Анализ акций</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">◢◤</div>
+    <div>
+      <div class="brand-name">РАДАР МОСБИРЖИ</div>
+      <div class="brand-sub" id="lastUpdate">загрузка…</div>
+    </div>
+  </div>
+  <div class="imoex-chip" id="imoexChip">
+    <span class="chip-label">IMOEX</span>
+    <span class="chip-val" id="imoexVal">—</span>
+    <span class="chip-chg" id="imoexChg"></span>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="tab active" data-view="stocks">Акции</button>
+  <button class="tab" data-view="watchlist">★ Избранное</button>
+  <button class="tab" data-view="dividends">Дивиденды</button>
+  <button class="tab" data-view="bonds">ОФЗ</button>
+  <button class="tab" data-view="about">?</button>
+</nav>
+
+<main id="app">
+  <!-- STOCKS VIEW -->
+  <section id="view-stocks" class="view active">
+    <div class="toolbar">
+      <input type="search" id="searchInput" placeholder="Поиск: SBER, Лукойл…" autocomplete="off">
+      <select id="sortSelect">
+        <option value="value">По обороту</option>
+        <option value="change-up">Лидеры роста</option>
+        <option value="change-down">Лидеры падения</option>
+        <option value="name">По алфавиту</option>
+      </select>
+    </div>
+    <div class="hint" id="stocksHint">Котировки Мосбиржи обновляются каждые 60 сек. Нажми на акцию — детали и RSI.</div>
+    <div id="stocksList" class="list">
+      <div class="loader">Загружаю котировки с Мосбиржи…</div>
+    </div>
+  </section>
+
+  <!-- WATCHLIST VIEW -->
+  <section id="view-watchlist" class="view">
+    <div class="hint">Твоё избранное. Добавляй акции звёздочкой ★ из общего списка.</div>
+    <div id="watchList" class="list"></div>
+  </section>
+
+  <!-- DIVIDENDS VIEW -->
+  <section id="view-dividends" class="view">
+    <div class="hint">Ближайшие дивидендные отсечки. Данные ориентировочные — проверяй у брокера.</div>
+    <div id="divList" class="list"></div>
+  </section>
+
+  <!-- BONDS VIEW -->
+  <section id="view-bonds" class="view">
+    <div class="hint">Государственные облигации (ОФЗ) — живые котировки с Мосбиржи.</div>
+    <div id="bondsList" class="list">
+      <div class="loader">Загружаю ОФЗ…</div>
+    </div>
+  </section>
+
+  <!-- ABOUT VIEW -->
+  <section id="view-about" class="view">
+    <div class="about-card">
+      <h2>О приложении</h2>
+      <p>Радар Мосбиржи — бесплатный инструмент анализа российского рынка акций. Котировки поступают напрямую с <strong>Московской биржи</strong> через открытый API (ISS MOEX) с задержкой ~15 минут.</p>
+      <h3>Что умеет</h3>
+      <ul>
+        <li><strong>Живые котировки</strong> — цена, изменение, объём торгов по всем ликвидным акциям</li>
+        <li><strong>RSI(14)</strong> — рассчитывается из дневных свечей за 3 месяца</li>
+        <li><strong>Избранное</strong> — твой персональный список, хранится на устройстве</li>
+        <li><strong>Дивидендный календарь</strong> — ближайшие отсечки</li>
+        <li><strong>ОФЗ</strong> — котировки гособлигаций</li>
+        <li><strong>Офлайн</strong> — приложение открывается без интернета (показывает последние данные)</li>
+      </ul>
+      <h3>Как читать RSI</h3>
+      <p><span class="rsi-tag green">&lt;30 перепродано</span> <span class="rsi-tag blue">30–70 нейтрально</span> <span class="rsi-tag red">&gt;70 перекуплено</span></p>
+      <p class="disclaimer">⚠ Не является инвестиционной рекомендацией. Данные предоставляются «как есть». Перед сделками проверяй информацию в торговом терминале брокера.</p>
+    </div>
+  </section>
+</main>
+
+<!-- DETAIL SHEET -->
+<div id="sheet" class="sheet hidden">
+  <div class="sheet-backdrop" id="sheetBackdrop"></div>
+  <div class="sheet-body">
+    <div class="sheet-handle"></div>
+    <div id="sheetContent"></div>
+  </div>
+</div>
+
+<div id="installBanner" class="install-banner hidden">
+  <span>📱 Установи как приложение</span>
+  <button id="installBtn">Установить</button>
+  <button id="installClose">✕</button>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
