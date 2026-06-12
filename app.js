@@ -47,6 +47,121 @@ const META = {
   RENI:  { sector:"Финансы",        note:"Страхование. Бенефициар снижения ставки." },
 };
 
+/* ===== ЛОГОТИПЫ =====
+   Публичный CDN брендов (по ISIN). Если лого не загрузилось —
+   фолбэк на цветной аватар с буквами тикера (onerror в renderLogo). */
+const LOGO_CDN = isin => isin ? `https://invest-brands.cdn-tinkoff.ru/${isin}x160.png` : null;
+
+const AVATAR_COLORS = ["#4fc3f7","#26d991","#f5c542","#a78bfa","#fb923c","#f05656","#34d3c3","#e879a8"];
+function avatarColor(ticker) {
+  let h = 0;
+  for (const ch of ticker) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+
+function renderLogo(s, size = 36) {
+  const color = avatarColor(s.ticker);
+  const letters = s.ticker.slice(0, 2);
+  const fallback = `<div class="logo-fallback" style="width:${size}px;height:${size}px;background:${color}22;color:${color};font-size:${size*0.32}px">${letters}</div>`;
+  const url = LOGO_CDN(s.isin);
+  if (!url) return fallback;
+  return `<div class="logo-wrap" style="width:${size}px;height:${size}px">
+    <img src="${url}" alt="" loading="lazy" width="${size}" height="${size}"
+      onerror="this.parentElement.innerHTML='${letters}';this.parentElement.className='logo-fallback';this.parentElement.style.cssText+='background:${color}22;color:${color};font-size:${size*0.32}px'">
+  </div>`;
+}
+
+/* ===== РОБО-ПОМОЩНИК: модельные данные =====
+   quality 1-5: устойчивость бизнеса и выплат
+   divYield: ориентир дивдоходности %, 0 = роста-акция
+   role: краткое объяснение зачем в портфеле */
+const ADVISOR_POOL = {
+  // тикер: { q=качество, dy=дивдоходность, profile: в какие профили входит, role }
+  LKOH:  { q:5, dy:10.5, profiles:["cons","bal","agg"], role:"Якорь портфеля: лучший частный нефтяник, низкий долг, дивиденды дважды в год даже в кризис." },
+  SBER:  { q:5, dy:10.5, profiles:["cons","bal","agg"], role:"Главный бенефициар снижения ставки ЦБ: дивиденд ~10% плюс переоценка тела при смягчении ДКП." },
+  TATN:  { q:4, dy:13.5, profiles:["cons","bal","agg"], role:"Высокая дивдоходность 13-14% при консервативном управлении. Доходная нефтяная позиция." },
+  SIBN:  { q:4, dy:12.0, profiles:["bal","agg"],        role:"Эффективность частника при господдержке. Дивиденды ~12% без газовых проблем материнского Газпрома." },
+  X5:    { q:4, dy:15.0, profiles:["cons","bal","agg"], role:"Защита от инфляции: ритейл перекладывает рост цен на покупателя. Дивдоходность ~15%." },
+  IRAO:  { q:4, dy:10.0, profiles:["cons","bal"],       role:"Энергетика для диверсификации. Кубышка ~450 млрд ₽ на балансе, потенциал роста выплат." },
+  MTSS:  { q:3, dy:15.4, profiles:["bal","agg"],        role:"Максимальный дивиденд рынка (35₽, ~15%). Риск: платит больше прибыли — держим долю небольшой." },
+  TRNFP: { q:4, dy:14.5, profiles:["cons","bal"],       role:"Монополия нефтепроводов: тарифная модель не зависит от цен на нефть. Дивиденды ~15%." },
+  PHOR:  { q:4, dy:5.5,  profiles:["bal","agg"],        role:"Удобрения: глобальный спрос + слабый рубль = рост выручки. Платит >75% свободного денежного потока." },
+  PLZL:  { q:4, dy:2.6,  profiles:["agg"],              role:"Золото на исторических рекордах. Защитный актив + лучший рост 2025 года (+71%)." },
+  HEAD:  { q:4, dy:7.5,  profiles:["agg"],              role:"Монополия рынка труда, байбэк 25% free-float. Рост + дивиденды." },
+  YDEX:  { q:4, dy:0,    profiles:["agg"],              role:"Акция роста: монополия в поиске, прибыльные Такси и Маркет. Ставка на переоценку." },
+  T:     { q:3, dy:4.0,  profiles:["agg"],              role:"Растущий необанк с байбэком. Сильный апсайд при снижении ставки." },
+  NVTK:  { q:3, dy:5.0,  profiles:["agg"],              role:"СПГ-экспортёр: Арктик СПГ-2 возобновил отгрузки, +15% с начала года." },
+};
+
+const PROFILES = {
+  cons: { label:"Консервативный", desc:"Максимум надёжности: только качественные дивидендные фишки. Подходит для первых шагов.", icon:"🛡" },
+  bal:  { label:"Сбалансированный", desc:"Баланс дохода и роста: дивидендные лидеры + умеренный риск.", icon:"⚖️" },
+  agg:  { label:"Агрессивный", desc:"Ставка на рост: акции роста + высокодоходные. Выше волатильность.", icon:"🚀" },
+};
+
+/* Жадный аллокатор с учётом лотов */
+function buildPortfolio(budget, profile) {
+  const candidates = Object.entries(ADVISOR_POOL)
+    .filter(([t, m]) => m.profiles.includes(profile))
+    .map(([t, m]) => ({ ticker: t, ...m, live: stocks.find(s => s.ticker === t) }))
+    .filter(c => c.live && c.live.price > 0);
+
+  if (!candidates.length) return null;
+
+  // сортируем по качеству, потом по доходности
+  candidates.sort((a, b) => b.q - a.q || b.dy - a.dy);
+
+  // целевые веса: качество^2 как базовый вес
+  const totalW = candidates.reduce((s, c) => s + c.q * c.q, 0);
+  candidates.forEach(c => c.targetShare = (c.q * c.q) / totalW);
+
+  // первый проход: покупаем лоты под целевые суммы
+  let cash = budget;
+  const positions = [];
+  for (const c of candidates) {
+    const lotPrice = c.live.price * c.live.lot;
+    if (lotPrice > budget) continue; // лот не влезает в бюджет вообще
+    const target = budget * c.targetShare;
+    let lots = Math.floor(target / lotPrice);
+    if (lots === 0 && lotPrice <= cash && positions.length < 3) lots = 1; // топовые позиции стараемся включить
+    if (lots === 0) continue;
+    const cost = lots * lotPrice;
+    if (cost > cash) continue;
+    cash -= cost;
+    positions.push({ ...c, lots, lotPrice, cost, shares: lots * c.live.lot });
+  }
+
+  // второй проход: докупаем лоты пока есть кэш (по приоритету качества)
+  let changed = true;
+  while (changed && cash > 0) {
+    changed = false;
+    for (const p of positions) {
+      if (p.lotPrice <= cash && (p.cost + p.lotPrice) / budget < p.targetShare + 0.12) {
+        p.lots += 1;
+        p.shares += p.live.lot;
+        p.cost += p.lotPrice;
+        cash -= p.lotPrice;
+        changed = true;
+      }
+    }
+  }
+
+  // ещё кандидаты на остаток
+  for (const c of candidates) {
+    if (positions.find(p => p.ticker === c.ticker)) continue;
+    const lotPrice = c.live.price * c.live.lot;
+    if (lotPrice <= cash) {
+      cash -= lotPrice;
+      positions.push({ ...c, lots:1, lotPrice, cost: lotPrice, shares: c.live.lot });
+    }
+  }
+
+  const invested = budget - cash;
+  const wAvgYield = invested ? positions.reduce((s,p) => s + p.dy * p.cost, 0) / invested : 0;
+
+  return { positions, invested, cash, wAvgYield, budget };
+}
+
 // Дивидендный календарь (статические ориентиры, лето 2026)
 const DIVIDENDS = [
   { ticker:"SBER",  date:"Июль 2026",   amt:"~34 ₽",   yield:"10–11%" },
@@ -86,14 +201,14 @@ function saveWatchlist() {
 
 // ===== MOEX API =====
 async function fetchStocks() {
-  const url = `${ISS}/engines/stock/markets/shares/boards/TQBR/securities.json?iss.meta=off&iss.only=securities,marketdata&securities.columns=SECID,SHORTNAME,PREVPRICE&marketdata.columns=SECID,LAST,LASTTOPREVPRICE,VALTODAY`;
+  const url = `${ISS}/engines/stock/markets/shares/boards/TQBR/securities.json?iss.meta=off&iss.only=securities,marketdata&securities.columns=SECID,SHORTNAME,PREVPRICE,LOTSIZE,ISIN&marketdata.columns=SECID,LAST,LASTTOPREVPRICE,VALTODAY`;
   const res = await fetch(url);
   if (!res.ok) throw new Error("MOEX API error " + res.status);
   const data = await res.json();
 
   const names = {};
-  data.securities.data.forEach(([secid, shortname, prev]) => {
-    names[secid] = { name: shortname, prev };
+  data.securities.data.forEach(([secid, shortname, prev, lot, isin]) => {
+    names[secid] = { name: shortname, prev, lot: lot || 1, isin };
   });
 
   const out = [];
@@ -108,6 +223,8 @@ async function fetchStocks() {
       price,
       change: chg ?? 0,
       value: val,
+      lot: meta.lot,
+      isin: meta.isin,
     });
   });
   return out;
@@ -209,6 +326,7 @@ function renderStocks() {
     return `
       <div class="stock-row" data-ticker="${s.ticker}">
         <button class="star-btn ${starred?"starred":""}" data-star="${s.ticker}">★</button>
+        ${renderLogo(s, 36)}
         <div class="stock-info">
           <div class="stock-ticker">${s.ticker}</div>
           <div class="stock-name">${s.name}</div>
@@ -252,9 +370,12 @@ async function openDetail(ticker) {
 
   content.innerHTML = `
     <div class="detail-head">
-      <div>
-        <div class="detail-ticker">${s.ticker}</div>
-        <div class="detail-name">${s.name}${meta.sector ? " · " + meta.sector : ""}</div>
+      <div style="display:flex;gap:12px;align-items:center">
+        ${renderLogo(s, 44)}
+        <div>
+          <div class="detail-ticker">${s.ticker}</div>
+          <div class="detail-name">${s.name}${meta.sector ? " · " + meta.sector : ""}</div>
+        </div>
       </div>
       <div>
         <div class="detail-price">${fmt(s.price)} ₽</div>
@@ -373,6 +494,85 @@ async function refresh() {
   }
   updateImoex();
 }
+
+// ===== РОБО-ПОМОЩНИК =====
+let advisorProfile = "bal";
+
+function renderAdvisorResult(result) {
+  const out = $("#advisorResult");
+  if (!result || !result.positions.length) {
+    out.innerHTML = `<div class="empty-state">Не удалось собрать портфель.<br>Попробуй сумму побольше или дождись загрузки котировок.</div>`;
+    return;
+  }
+  const { positions, invested, cash, wAvgYield, budget } = result;
+  const yearDiv = Math.round(invested * wAvgYield / 100);
+
+  out.innerHTML = `
+    <div class="advisor-summary">
+      <div class="metric-grid" style="grid-template-columns:repeat(4,1fr)">
+        <div class="metric"><div class="metric-label">Вложено</div><div class="metric-val" style="color:#fff">${fmt(invested)} ₽</div></div>
+        <div class="metric"><div class="metric-label">Остаток</div><div class="metric-val" style="color:var(--muted)">${fmt(cash)} ₽</div></div>
+        <div class="metric"><div class="metric-label">Дивдоходность</div><div class="metric-val" style="color:var(--green)">~${wAvgYield.toFixed(1)}%</div></div>
+        <div class="metric"><div class="metric-label">Дивиденды/год</div><div class="metric-val" style="color:var(--yellow)">~${fmt(yearDiv)} ₽</div></div>
+      </div>
+      <div class="alloc-bar">
+        ${positions.map(p => `<div class="alloc-seg" style="flex:${p.cost};background:${avatarColor(p.ticker)}" title="${p.ticker}"></div>`).join("")}
+      </div>
+    </div>
+    ${positions.map(p => {
+      const share = (p.cost / invested * 100).toFixed(0);
+      return `
+      <div class="advisor-row">
+        <div class="advisor-row-head">
+          ${renderLogo(p.live, 38)}
+          <div class="advisor-row-info">
+            <div class="advisor-row-top">
+              <span class="stock-ticker">${p.ticker}</span>
+              <span class="advisor-share" style="color:${avatarColor(p.ticker)}">${share}%</span>
+            </div>
+            <div class="stock-name">${p.live.name}</div>
+          </div>
+          <div class="advisor-row-nums">
+            <div class="advisor-cost">${fmt(p.cost)} ₽</div>
+            <div class="advisor-lots">${p.shares} шт (${p.lots} ${p.lots === 1 ? "лот" : p.lots < 5 ? "лота" : "лотов"})</div>
+            ${p.dy ? `<div class="advisor-dy">~${p.dy}% дивиденд</div>` : `<div class="advisor-dy" style="color:var(--purple)">акция роста</div>`}
+          </div>
+        </div>
+        <div class="advisor-role">💬 ${p.role}</div>
+      </div>`;
+    }).join("")}
+    <div class="disclaimer" style="margin-top:14px">
+      ⚠ Образовательный пример на основе живых цен и лотности Мосбиржи, а не индивидуальная рекомендация.
+      Дивиденды — ориентиры, не гарантированы. Перед покупкой проверь данные у брокера.
+    </div>
+  `;
+}
+
+function runAdvisor() {
+  const budget = parseInt($("#advisorAmount").value.replace(/\D/g, ""), 10);
+  if (!budget || budget < 500) {
+    $("#advisorResult").innerHTML = `<div class="empty-state">Введи сумму от 500 ₽</div>`;
+    return;
+  }
+  if (!stocks.length) {
+    $("#advisorResult").innerHTML = `<div class="loader">Жду загрузки котировок…</div>`;
+    return;
+  }
+  renderAdvisorResult(buildPortfolio(budget, advisorProfile));
+}
+
+document.querySelectorAll(".profile-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".profile-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    advisorProfile = btn.dataset.profile;
+    $("#profileDesc").textContent = PROFILES[advisorProfile].desc;
+    if ($("#advisorAmount").value) runAdvisor();
+  });
+});
+
+$("#advisorGo")?.addEventListener("click", runAdvisor);
+$("#advisorAmount")?.addEventListener("keydown", e => { if (e.key === "Enter") runAdvisor(); });
 
 // ===== NAVIGATION =====
 document.querySelectorAll(".tab").forEach(tab => {
