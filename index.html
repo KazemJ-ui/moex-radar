@@ -34,6 +34,7 @@
 
 <nav class="tabs">
   <button class="tab active" data-view="stocks">Акции</button>
+  <button class="tab" data-view="advisor">🤖 Подбор</button>
   <button class="tab" data-view="watchlist">★ Избранное</button>
   <button class="tab" data-view="dividends">Дивиденды</button>
   <button class="tab" data-view="bonds">ОФЗ</button>
@@ -56,6 +57,27 @@
     <div id="stocksList" class="list">
       <div class="loader">Загружаю котировки с Мосбиржи…</div>
     </div>
+  </section>
+
+  <!-- ADVISOR VIEW -->
+  <section id="view-advisor" class="view">
+    <div class="advisor-intro">
+      <div class="advisor-title">🤖 Помощник по портфелю</div>
+      <div class="hint">Введи сумму — соберу портфель по живым ценам Мосбиржи с учётом лотности и объясню каждую позицию.</div>
+    </div>
+    <div class="advisor-controls">
+      <div class="amount-row">
+        <input type="text" id="advisorAmount" inputmode="numeric" placeholder="Сумма, например 20000" autocomplete="off">
+        <button id="advisorGo">Собрать</button>
+      </div>
+      <div class="profile-row">
+        <button class="profile-btn" data-profile="cons">🛡 Консервативный</button>
+        <button class="profile-btn active" data-profile="bal">⚖️ Сбалансированный</button>
+        <button class="profile-btn" data-profile="agg">🚀 Агрессивный</button>
+      </div>
+      <div class="hint" id="profileDesc">Баланс дохода и роста: дивидендные лидеры + умеренный риск.</div>
+    </div>
+    <div id="advisorResult"></div>
   </section>
 
   <!-- WATCHLIST VIEW -->
