@@ -4,7 +4,7 @@
    - MOEX API: network-first, fallback на кэш (офлайн показывает последние данные)
 */
 
-const CACHE = "moex-radar-v1";
+const CACHE = "moex-radar-v2";
 const SHELL = [
   "./",
   "./index.html",
