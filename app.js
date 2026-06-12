@@ -62,13 +62,11 @@ function avatarColor(ticker) {
 function renderLogo(s, size = 36) {
   const color = avatarColor(s.ticker);
   const letters = s.ticker.slice(0, 2);
-  const fallback = `<div class="logo-fallback" style="width:${size}px;height:${size}px;background:${color}22;color:${color};font-size:${size*0.32}px">${letters}</div>`;
   const url = LOGO_CDN(s.isin);
-  if (!url) return fallback;
-  return `<div class="logo-wrap" style="width:${size}px;height:${size}px">
-    <img src="${url}" alt="" loading="lazy" width="${size}" height="${size}"
-      onerror="this.parentElement.innerHTML='${letters}';this.parentElement.className='logo-fallback';this.parentElement.style.cssText+='background:${color}22;color:${color};font-size:${size*0.32}px'">
-  </div>`;
+  // Аватар с буквами рендерится ВСЕГДА; картинка поверх — только если загрузилась
+  return `<div class="logo-fallback" style="width:${size}px;height:${size}px;background:${color}22;color:${color};font-size:${size*0.32}px">${letters}${
+    url ? `<img class="logo-img" src="${url}" alt="" loading="lazy" onerror="this.remove()">` : ""
+  }</div>`;
 }
 
 /* ===== РОБО-ПОМОЩНИК: модельные данные =====
